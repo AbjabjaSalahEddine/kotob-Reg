@@ -5,12 +5,14 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.auth0.jwt.interfaces.Header;
 import com.example.authentificationservice.domain.Role;
 import com.example.authentificationservice.domain.User;
 import com.example.authentificationservice.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -30,6 +32,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
+@Slf4j
 public class UserResource {
     private final UserService userService;
 
@@ -51,13 +54,17 @@ public class UserResource {
     }
 
     @PatchMapping("/users/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable(name = "id") String id ,@RequestBody User user) {
-        if(!userService.existUserById(id)) {
-            Map<String, String> error = new HashMap<>();
-            error.put("error_message", "User Not Exists");
-            return ResponseEntity.status(NOT_FOUND).body(error);
-        }
-        return ResponseEntity.ok().body(userService.updateUser(id, user));
+    public ResponseEntity<?> updateUser(@PathVariable(name = "id") String id , @RequestBody Object o ) {
+        //if(!userService.existUserById(id)) {
+        //    Map<String, String> error = new HashMap<>();
+        //   error.put("error_message", "User Not Exists");
+        //    return ResponseEntity.status(NOT_FOUND).body(error);
+        //}
+        log.info(o);
+
+        //return ResponseEntity.ok().body(userService.updateUser(id, user));
+
+        return ResponseEntity.ok().body(new User());
     }
 
     @DeleteMapping("/users/{id}")
