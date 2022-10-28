@@ -1,16 +1,43 @@
 package com.kotob_registry_libraries.libraries_service;
 
-import com.kotob_registry_libraries.libraries_service.entity.Book;
-import com.kotob_registry_libraries.libraries_service.entity.Library;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.rest.core.config.RepositoryRestConfiguration;
-import org.springframework.stereotype.Repository;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.RestTemplate;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
+@Slf4j
 @SpringBootApplication
 public class KotobRegistryLibrariesApplication {
+
+	@Value("${server.port}")
+	private Integer serverPort;
+	private String addMe(){
+		RestTemplate restTemplate=new RestTemplate();
+		HttpHeaders headers = new HttpHeaders();
+		headers.set("Authorization", "Secret_Key");
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+
+		Map<String, String> map = new HashMap<>();
+		map.put("name", "Libraries_MS");
+		map.put("port", serverPort.toString());
+
+		HttpEntity<Map<String, String>> entity = new HttpEntity<>(map, headers);
+
+		return restTemplate.exchange("http://localhost:8080/service-discovery/", HttpMethod.POST, entity, String.class).getBody();
+	}
+
 
 	public static void main(String[] args) {
 
@@ -19,8 +46,8 @@ public class KotobRegistryLibrariesApplication {
 	@Bean
 	CommandLineRunner start(RepositoryRestConfiguration repositoryRestConfiguration) {
 		return args -> {
-			repositoryRestConfiguration.exposeIdsFor(Book.class);
-			repositoryRestConfiguration.exposeIdsFor(Library.class);
+
+			log.info(addMe());
 		};
 	}
 
