@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from methods import pdftotext,search
 from schema import Response
 from model import ScannedBook
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
@@ -14,6 +15,11 @@ def get_db():
         yield db
     finally:
         db.close()
+
+@router.get("/actuator/health")
+async def get_health():
+    return {"status":"UP"}
+
 
 @router.get("/scannedbooks")
 async def get_books(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):

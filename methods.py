@@ -2,10 +2,9 @@
 from re import M
 from time import sleep
 from sqlalchemy.orm import Session
-import numpy as np
-import PIL
-import os
-import spacy
+from config import PORT
+import requests
+import json
 import pytesseract
 from Levenshtein import distance
 import platform
@@ -73,3 +72,19 @@ def search(query,lang,books):
 
 
     return results
+
+def addMe():
+    url = "http://127.0.0.1:8080/service-discovery/"
+
+    payload = json.dumps({
+    "name": "ScannedBooks_MS",
+    "port": str(PORT)
+    })
+    headers = {
+    'Authorization': 'Secret_Key',
+    'Content-Type': 'application/json'
+    }
+
+    response = requests.request("POST", url, headers=headers, data=payload)
+    
+    return response.text
