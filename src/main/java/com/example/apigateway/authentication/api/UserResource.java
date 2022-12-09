@@ -1,19 +1,21 @@
-package com.example.authentificationservice.api;
+package com.example.apigateway.authentication.api;
 
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import com.auth0.jwt.interfaces.Header;
-import com.example.authentificationservice.domain.Role;
-import com.example.authentificationservice.domain.User;
-import com.example.authentificationservice.service.UserService;
+import com.example.apigateway.authentication.domain.User;
+import com.example.apigateway.authentication.service.UserService;
+import com.example.apigateway.authentication.utils.JWTUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -21,29 +23,35 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URI;
+import java.security.Principal;
 import java.util.*;
-import java.util.stream.Collectors;
 
-import static java.util.Arrays.stream;
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.HttpStatus.*;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
-@Slf4j
 public class UserResource {
     private final UserService userService;
 
     @GetMapping("/users")
+    @PostAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<List<User>> getUsers() {
         return ResponseEntity.ok().body(userService.getUsers());
     }
 
+    @GetMapping("/users/{id}")
+    @PostAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<?> getUserById(@PathVariable(name = "id") String id ) {
+        return ResponseEntity.ok().body(userService.getUserById(id));
+    }
+
     @PostMapping("/users")
+    @PostAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<?> saveUser(@RequestBody User user) {
-        URI uri = URI.create(ServletUriComponentsBuilder.fromCurrentContextPath().path("/api/users").toUriString());
+        URI uri = URI.create(ServletUriComponentsBuilder.fromCurrentContextPath().path("/auth/users").toUriString());
         if(userService.existUser(user.getEmail())) {
             Map<String, String> error = new HashMap<>();
             error.put("error_message", "User Already Exists With This Email !");
@@ -54,21 +62,46 @@ public class UserResource {
     }
 
     @PatchMapping("/users/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable(name = "id") String id , @RequestBody Object o ) {
-        //if(!userService.existUserById(id)) {
-        //    Map<String, String> error = new HashMap<>();
-        //   error.put("error_message", "User Not Exists");
-        //    return ResponseEntity.status(NOT_FOUND).body(error);
-        //}
-        log.info(o);
+    @PostAuthorize("hasAnyAuthority('LIBRARY_OWNER', 'ADMIN')")
+    public ResponseEntity<?> updateUser(@PathVariable(name = "id") String id ,@RequestBody Object user) throws NoSuchFieldException, IllegalAccessException, JsonProcessingException {
 
-        //return ResponseEntity.ok().body(userService.updateUser(id, user));
+        if(!userService.isAllowedToManipulate(id)) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error_message", "Not Authorized");
+            return ResponseEntity.status(FORBIDDEN).body(error);
+        }
 
-        return ResponseEntity.ok().body(new User());
+        if(!userService.existUserById(id)) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error_message", "User Not Exists");
+            return ResponseEntity.status(NOT_FOUND).body(error);
+        }
+        ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+        String json = ow.writeValueAsString(user);
+        JSONObject jsonObject = new JSONObject(json);
+        Iterator<String> keys = jsonObject.keys();
+        String[] fields= {"firstName","email","lastName","password"};
+        while(keys.hasNext()) {
+            String key = keys.next();
+            if ( ! Arrays.stream(fields).anyMatch(key::equals)) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error_message", "Not Authorized to update "+key);
+                return ResponseEntity.status(FORBIDDEN).body(error);
+            }
+        }
+        return ResponseEntity.ok().body(userService.updateUser(id, jsonObject));
     }
 
     @DeleteMapping("/users/{id}")
+    @PostAuthorize("hasAnyAuthority('LIBRARY_OWNER', 'ADMIN')")
     public ResponseEntity<?> deleteUser(@PathVariable(name = "id") String id) {
+
+        if(!userService.isAllowedToManipulate(id)) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error_message", "Not Authorized");
+            return ResponseEntity.status(FORBIDDEN).body(error);
+        }
+
         if(!userService.existUserById(id)) {
             Map<String, String> error = new HashMap<>();
             error.put("error_message", "User Not Exists");
@@ -78,45 +111,43 @@ public class UserResource {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/roles")
-    public ResponseEntity<List<Role>> getRoles() {
-        return ResponseEntity.ok().body(userService.getRoles());
-    }
 
-    @PostMapping("/roles")
-    public ResponseEntity<Role> saveRole(@RequestBody Role role) {
-        URI uri = URI.create(ServletUriComponentsBuilder.fromCurrentContextPath().path("/api/roles").toUriString());
-        return ResponseEntity.created(uri).body(userService.saveRole(role));
-    }
-
-    @PostMapping("/role/addtouser")
-    public ResponseEntity<?> addRoleToUser(@RequestBody RoleToUserForm form) {
+    @PostMapping("/role/updaterole")
+    @PostAuthorize("hasAuthority('ADMIN')")
+    public ResponseEntity<?> updateRole(@RequestBody RoleToUserForm form) {
         if(!userService.existUser(form.getEmail())) {
             Map<String, String> error = new HashMap<>();
             error.put("error_message", "User Not Exists");
             return ResponseEntity.status(NOT_FOUND).body(error);
         }
-        userService.addRoleToUser(form.getEmail(), form.getRoleName());
+        userService.updateUserRole(form.getEmail(), form.getRoleName());
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<User> getProfile(Principal principal) {
+        return ResponseEntity.ok().body(userService.getUser(principal.getName()));
     }
 
     @GetMapping("/token/refresh")
     public void refreshToken(HttpServletRequest request, HttpServletResponse response) throws IOException {
 
         String authorizationHeader = request.getHeader(AUTHORIZATION);
-        if(authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+        if(authorizationHeader != null && authorizationHeader.startsWith(JWTUtils.PREFIX)) {
             try {
-                String refresh_token = authorizationHeader.substring("Bearer ".length());
-                Algorithm algorithm = Algorithm.HMAC256("secret".getBytes());
+                String refresh_token = authorizationHeader.substring(JWTUtils.PREFIX.length());
+                Algorithm algorithm = Algorithm.HMAC256(JWTUtils.SECRET.getBytes());
                 JWTVerifier verifier = JWT.require(algorithm).build();
                 DecodedJWT decodedJWT = verifier.verify(refresh_token);
                 String email = decodedJWT.getSubject();
                 User user = userService.getUser(email);
+                List<String> roles = new ArrayList<>();
+                roles.add(user.getRole().name());
                 String access_token = JWT.create()
                         .withSubject(user.getEmail())
-                        .withExpiresAt(new Date(System.currentTimeMillis() + 60 * 60 * 1000))
+                        .withExpiresAt(new Date(System.currentTimeMillis() + JWTUtils.ACCESS_TOKEN))
                         .withIssuer(request.getRequestURL().toString())
-                        .withClaim("roles", user.getRoles().stream().map(Role::getName).collect(Collectors.toList()))
+                        .withClaim(JWTUtils.ROLES, roles)
                         .sign(algorithm);
 
 
