@@ -1,6 +1,7 @@
 package com.kotob_registry_libraries.libraries_service.entity;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.*;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import lombok.Data;
 import lombok.ToString;
 import org.hibernate.annotations.GenericGenerator;
@@ -19,22 +20,23 @@ public class Library {
 	@Id
 	@GeneratedValue(strategy=GenerationType.IDENTITY)
 	@Column(name="library_id")
-	private Long libraryId ;
+	@JsonSerialize
+	private Long id ;
 
 	@Column(name="library_name")
-	private String libraryName ;
+	private String name ;
 
 	@Column(name="library_adresse")
-	private String libraryAdresse ;
+	private String address ;
 
 	@Column(name="library_imagelink")
-	private String libraryImagelink ;
+	private String imagelink ;
 
 	@Column(name="library_owner")
-	private String libraryOwner ;
+	private String libraryowner ;
 
 
-	@OneToMany(mappedBy = "library")
-	@JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+	@OneToMany(cascade =CascadeType.ALL , mappedBy = "library")
+	@JsonBackReference
 	private Collection<Book> books ;
 }
