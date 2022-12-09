@@ -34,7 +34,7 @@ async def creatscannedbook(file: UploadFile  = File(), id: int = Form(...), lang
     
     t1=threading.Thread(target=pdftotext,args=(file.filename,id,language,db))
     t1.start()
-
+    
     return Response(status="Ok", code="200", message="Processing ...", result={
         "expected textfile path ":"bookstexts/"+str(id)+'-'+file.filename.replace(".pdf",".txt")
         })
@@ -43,13 +43,13 @@ async def creatscannedbook(file: UploadFile  = File(), id: int = Form(...), lang
 async def findbooks(q:str="",lang:str="eng", db: Session = Depends(get_db)):
     _books = db.query(ScannedBook).all()
     results= search(q,lang,_books)
-    return Response(status="Ok", code="200", message="Success fetch all data", result=results)      
+    return results      
 
 @router.delete("/scannedbooks/{id}")
-def update(id:int, db: Session = Depends(get_db)):
+def delete(id:int, db: Session = Depends(get_db)):
     book = db.query(ScannedBook).filter(ScannedBook.id == id).first()
     os.remove(book.__getattribute__("txtFilePath"))
-    os.remove("./pdfs/"+str(id)+"-"+book.__getattribute__("txtFilePath").split("-")[1].replace(".txt",".pdf"))
+    # os.remove("./pdfs/"+str(id)+"-"+book.__getattribute__("txtFilePath").split("-")[1].replace(".txt",".pdf"))
     db.delete(book)
     db.commit()
     return Response(status="Ok", code="200", message="Success delete data").dict(exclude_none=True)

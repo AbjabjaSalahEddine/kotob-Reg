@@ -1,5 +1,4 @@
 
-from re import M
 from time import sleep
 from sqlalchemy.orm import Session
 from config import PORT
@@ -30,7 +29,7 @@ def pdftotext(filename,id,lang,db):
     pytesseract.pytesseract.tesseract_cmd = r'D:\Logiciels\Tesseract-OCR\tesseract.exe'
 
     #iterate in images reading them using tesseract and writing in the text file
-    with open("./bookstexts/"+str(id)+'-'+filename.replace("pdf","txt"), "w" , encoding="utf-8") as output_file:
+    with open("./bookstexts/"+str(id)+'-'+filename.replace(".pdf",".txt"), "w" , encoding="utf-8") as output_file:
         text=""
         for image in images:
             text+= pytesseract.image_to_string (image, lang=languages[lang])+"\n"
@@ -84,7 +83,12 @@ def addMe():
     'Authorization': 'Secret_Key',
     'Content-Type': 'application/json'
     }
-
-    response = requests.request("POST", url, headers=headers, data=payload)
+    try:
+        response = requests.request("POST", url, headers=headers, data=payload)
+        response=response.text
+    except:
+        print("the service getaway is down probably!")
+        response="the service getaway is down probably!"
+        
     
-    return response.text
+    return response
